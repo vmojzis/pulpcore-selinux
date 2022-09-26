@@ -1,4 +1,4 @@
-%define selinux_variants mls strict targeted
+%define selinux_variants mls minimum targeted
 %define selinux_modules pulpcore_port pulpcore pulpcore_rhsmcertd
 %define debug_package %{nil}
 
@@ -19,6 +19,7 @@ Requires:       pulpcore
 Requires(post): policycoreutils, pulpcore
 Requires(postun): policycoreutils
 %{?systemd_requires}
+%{?selinux_requires}
 
 %description
 The SELinux policy for Pulp 3.Y releases.
@@ -46,17 +47,18 @@ do
   for selinuxmodule in %{selinux_modules}
   do
     install -p -m 644 ${selinuxmodule}.pp.${selinuxvariant} \
-      %{buildroot}%{_datadir}/selinux/${selinuxvariant}/${selinuxmodule}.pp
+      %{buildroot}%{_datadir}/selinux/packages/${selinuxvariant}/${selinuxmodule}.pp
   done
 done
+install -D -p -m 0644 pulpcore.if %{buildroot}%{_datadir}/selinux/devel/include/distributed/pulpcore.if
 
 %post
 for selinuxvariant in %{selinux_variants}
 do
   for selinuxmodule in %{selinux_modules}
   do
-    /usr/sbin/semodule -s ${selinuxvariant} -i \
-      %{_datadir}/selinux/${selinuxvariant}/${selinuxmodule}.pp &> /dev/null || :
+    /usr/sbin/semodule -X 200 -s ${selinuxvariant} -i \
+      %{_datadir}/selinux/packages/${selinuxvariant}/${selinuxmodule}.pp &> /dev/null || :
   done
 done
 systemctl daemon-reexec &>/dev/null || :
@@ -68,7 +70,7 @@ if [ $1 -eq 0 ] ; then
   do
     for selinuxmodule in %{selinux_modules}
     do
-      /usr/sbin/semodule -s ${selinuxvariant} -r ${selinuxmodule} &> /dev/null || :
+      /usr/sbin/semodule -X 200 -s ${selinuxvariant} -r ${selinuxmodule} &> /dev/null || :
     done
   done
   systemctl daemon-reexec &>/dev/null || :
@@ -80,7 +82,10 @@ fi
 %{_datadir}/selinux/*/pulpcore.pp
 %{_datadir}/selinux/*/pulpcore_port.pp
 %{_datadir}/selinux/*/pulpcore_rhsmcertd.pp
-
+%{_datadir}/selinux/devel/include/distributed/pulpcore.if
+%ghost %verify(not md5 size mode mtime) %{_sharedstatedir}/selinux/minimum/active/modules/200/pulpcore
+%ghost %verify(not md5 size mode mtime) %{_sharedstatedir}/selinux/mls/active/modules/200/pulpcore
+%ghost %verify(not md5 size mode mtime) %{_sharedstatedir}/selinux/targeted/active/modules/200/pulpcore
 
 %changelog
 * Wed Aug 10 2022 Zach Huntington-Meath <zhunting@redhat.com> - 1.3.2-1
